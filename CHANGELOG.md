@@ -4,6 +4,14 @@ All notable changes to tsuba are documented here. Format based on [Keep a Change
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-04-19
+
+### Fixed
+
+- `LICENSE` and `README.md` templates no longer emit a trailing space after the year when `Author.Name` is empty. Uses `{{with .Author.Name}} {{.}}{{end}}` so the name is only appended when present (Round 4, T3).
+- `tsuba doctor` stale copy: told users `author fields will be placeholders` when an unset git identity actually omits the whole author object from `plugin.json` post-v0.1.4. Now says so (Round 4, T3).
+- `.goreleaser.yaml` migrated from the deprecated `format: zip` override to the current `formats: ["zip"]` array form. goreleaser v2 still runs the deprecated path but warns on every release (Round 4, T2).
+
 ## [0.1.4] - 2026-04-19
 
 ### Fixed
@@ -63,7 +71,8 @@ All notable changes to tsuba are documented here. Format based on [Keep a Change
 - Every scaffolded plugin's README footer includes an opt-out "scaffolded with tsuba" attribution.
 - Composite GitHub Action wrapper that runs `tsuba validate` on every PR against a plugin repo.
 
-[Unreleased]: https://github.com/RoninForge/tsuba/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/RoninForge/tsuba/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/RoninForge/tsuba/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/RoninForge/tsuba/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/RoninForge/tsuba/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/RoninForge/tsuba/compare/v0.1.1...v0.1.2

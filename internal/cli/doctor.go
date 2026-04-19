@@ -44,7 +44,8 @@ func runDoctor(stdout io.Writer) {
 			fmt.Fprintf(stdout, "  ok    git identity: %s <%s>\n", name, email)
 		} else {
 			fmt.Fprintln(stdout, "  warn  git installed but user.name / user.email not configured.")
-			fmt.Fprintln(stdout, "        `tsuba new plugin` author fields will be placeholders.")
+			fmt.Fprintln(stdout, "        `tsuba new plugin` will omit the author object from plugin.json")
+			fmt.Fprintln(stdout, "        (hanko will warn via HANKO003 but still exit 0).")
 			fmt.Fprintln(stdout, "        Fix:")
 			fmt.Fprintln(stdout, "          git config --global user.name \"Your Name\"")
 			fmt.Fprintln(stdout, "          git config --global user.email \"you@example.com\"")

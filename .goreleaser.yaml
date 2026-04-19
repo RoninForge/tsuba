@@ -35,9 +35,12 @@ archives:
   - id: default
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    # `formats` (plural, array) replaces the deprecated singular
+    # `format` field. Emits .zip on Windows; macOS and Linux keep
+    # goreleaser v2's default .tar.gz, which matches install.sh.
     format_overrides:
       - goos: windows
-        format: zip
+        formats: ["zip"]
     files:
       - LICENSE
       - README.md

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -213,6 +214,66 @@ func TestScaffoldSkill(t *testing.T) {
 	}
 }
 
+// TestEnsureTargetWithBrokenSymlink covers the Round 2 os.Lstat fix.
+// A dangling symlink at the target path must be detected as "exists"
+// (not as "nothing there"), so --force can clean it up via RemoveAll
+// instead of crashing later in MkdirAll.
+//
+// Only runs on non-Windows because os.Symlink on Windows requires
+// admin or developer-mode. CI covers Linux + macOS which is where the
+// bug lives anyway.
+func TestEnsureTargetWithBrokenSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os.Symlink on Windows needs admin; the Lstat fix is irrelevant there")
+	}
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "link-target")
+	if err := os.Symlink("/does/not/exist-broken-symlink", root); err != nil {
+		t.Fatalf("create dangling symlink: %v", err)
+	}
+
+	// Without --force, dangling link must be detected as existing.
+	_, err := Scaffold(Options{
+		Kind:      KindPlugin,
+		Name:      "link-target",
+		TargetDir: tmp,
+	})
+	if !errors.Is(err, ErrTargetExists) {
+		t.Errorf("without --force, dangling symlink should return ErrTargetExists, got: %v", err)
+	}
+
+	// With --force, scaffold must clean the link and proceed.
+	if _, err := Scaffold(Options{
+		Kind:      KindPlugin,
+		Name:      "link-target",
+		TargetDir: tmp,
+		Force:     true,
+		Author:    Author{Name: "X"},
+	}); err != nil {
+		t.Errorf("with --force, dangling symlink should be replaced with a real dir, got: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".claude-plugin/plugin.json")); err != nil {
+		t.Errorf("plugin.json should exist after --force over a broken link, got: %v", err)
+	}
+}
+
+// TestSampleSkillMustBeKebabCase is defensive: SampleSkill is not a
+// CLI flag today, but if it ever becomes one, a non-kebab-case value
+// would flow into YAML frontmatter in sample-skill.md.tmpl and reopen
+// the same injection class the T2-2 fix closed for description.
+func TestSampleSkillMustBeKebabCase(t *testing.T) {
+	_, err := Scaffold(Options{
+		Kind:        KindPlugin,
+		Name:        "valid-name",
+		TargetDir:   t.TempDir(),
+		SampleSkill: "Invalid Skill Name",
+		Author:      Author{Name: "X"},
+	})
+	if !errors.Is(err, ErrSampleSkillInvalid) {
+		t.Errorf("expected ErrSampleSkillInvalid for non-kebab SampleSkill, got: %v", err)
+	}
+}
+
 // TestScaffoldUnknownKind guards the switch default.
 func TestScaffoldUnknownKind(t *testing.T) {
 	_, err := Scaffold(Options{Kind: "bogus", Name: "x", TargetDir: t.TempDir()})
@@ -339,10 +400,12 @@ func TestPluginJSONOmitsAuthorWhenEmpty(t *testing.T) {
 	}
 }
 
-// TestPluginJSONEmailOnlyKeepsAuthor verifies the author object is
-// emitted when only one of Name or Email is non-empty. Partial data
-// is still useful to downstream consumers.
-func TestPluginJSONEmailOnlyKeepsAuthor(t *testing.T) {
+// TestPluginJSONEmailOnlyOmitsAuthor is the Round 3 guard. An
+// email-only Author (name empty) used to still emit the author
+// object, which breaks hanko's minLength:1 check on author.name.
+// The schema treats email as optional; the whole object must be
+// absent when name is empty.
+func TestPluginJSONEmailOnlyOmitsAuthor(t *testing.T) {
 	tmp := t.TempDir()
 	r, err := Scaffold(Options{
 		Kind:      KindPlugin,
@@ -354,16 +417,47 @@ func TestPluginJSONEmailOnlyKeepsAuthor(t *testing.T) {
 		t.Fatalf("Scaffold: %v", err)
 	}
 	raw, _ := os.ReadFile(filepath.Join(r.Root, ".claude-plugin/plugin.json"))
+	if strings.Contains(string(raw), `"author"`) {
+		t.Errorf("author object must be omitted when Name is empty (email-only). raw:\n%s", raw)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if _, hasAuthor := got["author"]; hasAuthor {
+		t.Error("author key should be absent from decoded map")
+	}
+}
+
+// TestPluginJSONNameOnlyKeepsAuthorOmitsEmail is the Round 3 guard
+// for the opposite partial case. Name is required per schema; email
+// is optional. A name-only author should serialize as
+// {"name":"X"} without an empty email field (thanks to omitempty).
+func TestPluginJSONNameOnlyKeepsAuthorOmitsEmail(t *testing.T) {
+	tmp := t.TempDir()
+	r, err := Scaffold(Options{
+		Kind:      KindPlugin,
+		Name:      "name-only",
+		TargetDir: tmp,
+		Author:    Author{Name: "Anonymous"},
+	})
+	if err != nil {
+		t.Fatalf("Scaffold: %v", err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(r.Root, ".claude-plugin/plugin.json"))
 	var got map[string]any
 	if err := json.Unmarshal(raw, &got); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	author, ok := got["author"].(map[string]any)
 	if !ok {
-		t.Fatalf("author should be an object when email is set, got %v", got["author"])
+		t.Fatalf("author should be emitted when Name is set, got %v", got["author"])
 	}
-	if author["email"] != "anon@example.com" {
-		t.Errorf("author.email = %v, want anon@example.com", author["email"])
+	if author["name"] != "Anonymous" {
+		t.Errorf("author.name = %v, want Anonymous", author["name"])
+	}
+	if _, hasEmail := author["email"]; hasEmail {
+		t.Error("author.email should be omitted (omitempty) when the input email is empty")
 	}
 }
 

@@ -4,6 +4,21 @@ All notable changes to tsuba are documented here. Format based on [Keep a Change
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-04-19
+
+### Fixed
+
+- **Partial-author still broke hanko on first try (Round 3, T1):** the v0.1.3 guard used OR (`Name != "" || Email != ""`), which still emitted `{"name":"","email":"X"}` for an email-only author. Hanko rejected that with a `HANKO-SCHEMA` minLength:1 error on `name`. The original test `TestPluginJSONEmailOnlyKeepsAuthor` even pinned the buggy behaviour as intended. Fix: scaffold now emits the author object only when `Name != ""`. `Author.Email` grew an `omitempty` json tag so a name-only author serializes as `{"name":"X"}` cleanly. Email remains optional per the schema; name remains required.
+- **Regression guard for the broken-symlink Lstat fix:** added `TestEnsureTargetWithBrokenSymlink` so a future refactor that flips `Lstat` back to `Stat` fails CI. Non-Windows build tag (os.Symlink on Windows needs admin).
+
+### Changed
+
+- `yamlQuoteString` fallback branch changed from silent `""` return to an explicit panic. `json.Marshal` of a plain Go string cannot fail per stdlib contract; the panic documents the impossibility rather than papering over a broken build.
+
+### Added
+
+- `SampleSkill` field in `scaffold.Options` is now kebab-case validated (`ErrSampleSkillInvalid`). Defensive: SampleSkill is not a CLI flag today, but if it ever becomes one, non-kebab input would flow into YAML `name:` frontmatter in `sample-skill.md.tmpl` and reopen the T2-2 injection class. Guarded pre-emptively.
+
 ## [0.1.3] - 2026-04-19
 
 ### Fixed
@@ -48,7 +63,8 @@ All notable changes to tsuba are documented here. Format based on [Keep a Change
 - Every scaffolded plugin's README footer includes an opt-out "scaffolded with tsuba" attribution.
 - Composite GitHub Action wrapper that runs `tsuba validate` on every PR against a plugin repo.
 
-[Unreleased]: https://github.com/RoninForge/tsuba/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/RoninForge/tsuba/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/RoninForge/tsuba/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/RoninForge/tsuba/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/RoninForge/tsuba/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/RoninForge/tsuba/compare/v0.1.0...v0.1.1

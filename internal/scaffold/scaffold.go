@@ -37,9 +37,16 @@ const (
 // The json tags let Author ride directly through encoding/json.Marshal
 // when we build plugin.json, which sidesteps the injection class that
 // text/template has when a user name contains quotes or backslashes.
+//
+// Email has `omitempty` because the Claude Code plugin schema treats
+// email as optional-but-must-be-a-valid-format-if-present. A missing
+// email is fine; an empty-string email fails the `format: email`
+// check. Name does not use `omitempty`: it is the required field, and
+// scaffoldPlugin already skips emitting the whole Author object when
+// Name is empty.
 type Author struct {
 	Name  string `json:"name"`
-	Email string `json:"email"`
+	Email string `json:"email,omitempty"`
 }
 
 // pluginManifest is the shape of .claude-plugin/plugin.json when
@@ -117,6 +124,12 @@ var ErrNameInvalid = errors.New("name must be kebab-case: lowercase letters, dig
 // already exists and Force is false.
 var ErrTargetExists = errors.New("target directory already exists (use --force to overwrite)")
 
+// ErrSampleSkillInvalid is returned when Options.SampleSkill is set
+// to a non-kebab-case value. Prevents YAML-frontmatter-injection
+// through the sample skill's `name:` field if a future CLI flag ever
+// exposes SampleSkill to user input.
+var ErrSampleSkillInvalid = errors.New("sample skill name must be kebab-case: lowercase letters, digits, and single hyphens")
+
 // Scaffold renders templates for the requested kind and writes them to
 // disk. It returns a Result describing what was written. Errors are
 // wrapped with context so the CLI can surface them directly.
@@ -126,6 +139,10 @@ func Scaffold(opts Options) (*Result, error) {
 	}
 
 	opts = applyDefaults(opts)
+
+	if opts.Kind == KindPlugin && !kebabPattern.MatchString(opts.SampleSkill) {
+		return nil, fmt.Errorf("%w: %q", ErrSampleSkillInvalid, opts.SampleSkill)
+	}
 
 	switch opts.Kind {
 	case KindPlugin:
@@ -159,6 +176,10 @@ func applyDefaults(o Options) Options {
 	if o.SampleSkill == "" {
 		o.SampleSkill = "hello"
 	}
+	// SampleSkill is currently hardcoded by the CLI (no flag), but
+	// validate anyway so a future flag can't bypass the check.
+	// Defensive pattern, zero runtime cost.
+	_ = o.SampleSkill
 	// Attribution defaults to true. A caller that wants to opt out
 	// must set it explicitly false at the struct level; bool defaults
 	// are false in Go, so we flip here.
@@ -209,13 +230,14 @@ func buildData(o Options) templateData {
 // Unicode U+2028). We rely on that equivalence instead of writing a
 // bespoke YAML escaper.
 //
-// If json.Marshal ever fails (it can't for a plain string), we fall
-// back to an empty-quoted scalar so the template still renders
-// valid YAML rather than panicking.
+// json.Marshal of a plain Go string cannot fail per stdlib contract
+// (only channels, funcs, cyclic structs, and NaN/Inf floats trip it).
+// Panic on an err return rather than silently emitting `""` — that
+// signals a broken build, which is the correct reaction.
 func yamlQuoteString(s string) string {
 	b, err := json.Marshal(s)
 	if err != nil {
-		return `""`
+		panic("yamlQuoteString: json.Marshal failed on a string (impossible per encoding/json contract): " + err.Error())
 	}
 	return string(b)
 }
@@ -322,10 +344,13 @@ func scaffoldPlugin(o Options) (*Result, error) {
 		Version:     o.Version,
 		License:     o.License,
 	}
-	// Only include the author object when we actually have a name or
-	// email. See the pluginManifest doc comment for the hanko-pass
-	// rationale.
-	if o.Author.Name != "" || o.Author.Email != "" {
+	// Only include the author object when we have a non-empty name.
+	// The schema requires `author.name` (minLength 1) and treats email
+	// as optional. An email-only author would serialize as
+	// {"name":"","email":"x@y"} which fails hanko's minLength check.
+	// Name-only is fine: Email has `omitempty` so it drops out cleanly.
+	// See the pluginManifest doc comment for the hanko-pass rationale.
+	if o.Author.Name != "" {
 		author := o.Author
 		manifest.Author = &author
 	}

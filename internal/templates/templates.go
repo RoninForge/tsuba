@@ -28,24 +28,5 @@ func FS() fs.FS {
 // Read returns the bytes of a single template file relative to tmpl/.
 // Returns the fs.ErrNotExist from io/fs on a missing path.
 func Read(path string) ([]byte, error) {
-	f, err := FS().Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	var out []byte
-	buf := make([]byte, 4096)
-	for {
-		n, err := f.Read(buf)
-		if n > 0 {
-			out = append(out, buf[:n]...)
-		}
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			return out, err
-		}
-	}
-	return out, nil
+	return fs.ReadFile(FS(), path)
 }

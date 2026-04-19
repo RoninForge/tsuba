@@ -60,9 +60,9 @@ marketplace.`,
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
 
-	cmd.AddCommand(newNewCmd(stdout, stderr))
+	cmd.AddCommand(newNewCmd(stdout))
 	cmd.AddCommand(newValidateCmd(stdout, stderr))
-	cmd.AddCommand(newDoctorCmd(stdout, stderr))
+	cmd.AddCommand(newDoctorCmd(stdout))
 	cmd.AddCommand(newListCmd(stdout))
 	cmd.AddCommand(newVersionCmd(stdout))
 

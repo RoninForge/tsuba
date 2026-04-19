@@ -49,7 +49,7 @@ func (f *newFlags) resolveAuthor() scaffold.Author {
 	return scaffold.Author{Name: name, Email: email}
 }
 
-func newNewCmd(stdout, stderr io.Writer) *cobra.Command {
+func newNewCmd(stdout io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new",
 		Short: "Scaffold a new skill or plugin",
@@ -65,12 +65,12 @@ Supported kinds:
 
 Hook and agent scaffolding ships in v0.2.`,
 	}
-	cmd.AddCommand(newNewPluginCmd(stdout, stderr))
-	cmd.AddCommand(newNewSkillCmd(stdout, stderr))
+	cmd.AddCommand(newNewPluginCmd(stdout))
+	cmd.AddCommand(newNewSkillCmd(stdout))
 	return cmd
 }
 
-func newNewPluginCmd(stdout, stderr io.Writer) *cobra.Command {
+func newNewPluginCmd(stdout io.Writer) *cobra.Command {
 	var flags newFlags
 	cmd := &cobra.Command{
 		Use:   "plugin <name>",
@@ -84,7 +84,7 @@ func newNewPluginCmd(stdout, stderr io.Writer) *cobra.Command {
 	return cmd
 }
 
-func newNewSkillCmd(stdout, stderr io.Writer) *cobra.Command {
+func newNewSkillCmd(stdout io.Writer) *cobra.Command {
 	var flags newFlags
 	cmd := &cobra.Command{
 		Use:   "skill <name>",

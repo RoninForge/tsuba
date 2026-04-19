@@ -32,7 +32,10 @@ func Validate(targetDir string) (exitCode int, stdout string, err error) {
 		return 0, "", ErrNotInstalled
 	}
 	var out bytes.Buffer
-	cmd := exec.Command("hanko", "check", "--color=false", targetDir)
+	// G204: `targetDir` is a user-supplied file path, not an arbitrary
+	// shell command. We pass it as an exec.Command arg (not through a
+	// shell) so metacharacters cannot be reinterpreted.
+	cmd := exec.Command("hanko", "check", "--color=false", targetDir) //nolint:gosec
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	runErr := cmd.Run()

@@ -38,7 +38,9 @@ func Available() bool {
 }
 
 func configValue(key string) string {
-	cmd := exec.Command("git", "config", "--get", key)
+	// G204: `key` is a compile-time constant passed by sibling functions
+	// (UserName, UserEmail); never user input.
+	cmd := exec.Command("git", "config", "--get", key) //nolint:gosec
 	out, err := cmd.Output()
 	if err != nil {
 		// exit status 1 = key not set. Any other error means git is

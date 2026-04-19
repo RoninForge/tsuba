@@ -206,7 +206,7 @@ func render(path string, data templateData) ([]byte, error) {
 }
 
 // writeFile writes content to a path relative to root, creating parent
-// directories as needed. Mode is 0o644 for files and 0o755 for the
+// directories as needed. Mode is 0o644 for files and 0o750 for the
 // parent directories. Refuses to write outside root (defensive check
 // against a rendered path that somehow contains `..`).
 func writeFile(root, rel string, content []byte) error {
@@ -216,7 +216,7 @@ func writeFile(root, rel string, content []byte) error {
 	if err != nil || strings.HasPrefix(relClean, "..") {
 		return fmt.Errorf("refusing to write outside scaffold root: %s", rel)
 	}
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(full), 0o750); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(full), err)
 	}
 	if err := os.WriteFile(full, content, 0o644); err != nil { //nolint:gosec // 0644 is intentional for generated source files
@@ -237,7 +237,7 @@ func ensureTarget(root string, force bool) error {
 		}
 		return nil
 	case errors.Is(err, fs.ErrNotExist):
-		return os.MkdirAll(root, 0o755)
+		return os.MkdirAll(root, 0o750)
 	default:
 		return fmt.Errorf("stat %s: %w", root, err)
 	}

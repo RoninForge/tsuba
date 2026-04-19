@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newDoctorCmd(stdout, stderr io.Writer) *cobra.Command {
+func newDoctorCmd(stdout io.Writer) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
 		Short: "Report the status of the local environment tsuba depends on",
@@ -18,13 +18,13 @@ func newDoctorCmd(stdout, stderr io.Writer) *cobra.Command {
 are advisory - tsuba's scaffolding commands work without hanko or a
 configured git identity, but several fields will be placeholders.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			runDoctor(stdout, stderr)
+			runDoctor(stdout)
 			return nil
 		},
 	}
 }
 
-func runDoctor(stdout, stderr io.Writer) {
+func runDoctor(stdout io.Writer) {
 	fmt.Fprintln(stdout, "tsuba doctor - local environment check")
 	fmt.Fprintln(stdout)
 

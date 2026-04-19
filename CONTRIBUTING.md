@@ -57,15 +57,17 @@ docs: clarify skill vs standalone-skill layout
 cmd/tsuba/         thin main() entrypoint
 internal/cli/      cobra command tree
 internal/version/  build-time version metadata
-internal/scaffold/ template rendering + directory writing
+internal/scaffold/ template rendering + directory writing (+ round-trip tests)
 internal/templates/ //go:embed'd text/template sources
 internal/hanko/    shell-out adapter to the hanko binary
-internal/gitctx/   git config read helpers (user.name, user.email, origin URL)
+internal/gitctx/   git config read helpers (user.name, user.email)
 action/            composite GitHub Action wrapper
 scripts/           install script and helpers
-testdata/          expected scaffold output per kind + per marketplace
 docs/research/     phase-1 research artefacts (not shipped in the binary)
 ```
+
+Scaffold round-trip fixtures live inline in `internal/scaffold/scaffold_test.go`
+(see `TestPluginJSONInjection`). There is no separate `testdata/` directory.
 
 ## Reporting security issues
 

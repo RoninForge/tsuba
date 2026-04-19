@@ -34,9 +34,11 @@ func (f *newFlags) register(cmd *cobra.Command) {
 }
 
 // resolveAuthor picks the final author name + email given the flag
-// values and git config fallbacks. Empty strings propagate; the
-// templates handle missing values by rendering empty fields (the user
-// can fill them in later, and hanko will warn via HANKO003).
+// values and git config fallbacks. Empty strings propagate. When both
+// are empty, scaffold omits the author object from plugin.json entirely
+// so hanko emits a HANKO003 warning (non-blocking) instead of a
+// HANKO-SCHEMA error on minLength. Users can add --author / --email or
+// set git config to silence the warning.
 func (f *newFlags) resolveAuthor() scaffold.Author {
 	name := f.authorName
 	if name == "" {

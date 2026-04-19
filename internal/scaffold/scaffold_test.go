@@ -202,7 +202,7 @@ func TestScaffoldSkill(t *testing.T) {
 	s := string(content)
 	for _, want := range []string{
 		"name: code-reviewer",
-		"description: Review code for quality",
+		`description: "Review code for quality"`, // YAML double-quoted scalar per T2-2 fix
 		"# Code Reviewer",
 		"## When to use",
 		"## Instructions",
@@ -301,6 +301,124 @@ func TestForceClearsStaleFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(stale); !os.IsNotExist(err) {
 		t.Errorf("expected stale file to be removed, stat err = %v", err)
+	}
+}
+
+// TestPluginJSONOmitsAuthorWhenEmpty is the Round 2 T2-1 guard:
+// a fresh-machine user with no git config used to produce a
+// plugin.json with `"author": {"name":"","email":""}` that hanko
+// rejected with a HANKO-SCHEMA minLength error. The fix makes Author
+// a pointer and omits it entirely when both fields are empty, which
+// downgrades the hanko signal to HANKO003 (warning, non-blocking).
+func TestPluginJSONOmitsAuthorWhenEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	r, err := Scaffold(Options{
+		Kind:      KindPlugin,
+		Name:      "no-author-plugin",
+		TargetDir: tmp,
+		Author:    Author{}, // both fields empty
+	})
+	if err != nil {
+		t.Fatalf("Scaffold: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(r.Root, ".claude-plugin/plugin.json"))
+	if err != nil {
+		t.Fatalf("read plugin.json: %v", err)
+	}
+	if strings.Contains(string(raw), `"author"`) {
+		t.Errorf("author field should be omitted when both Name and Email are empty, got:\n%s", raw)
+	}
+
+	// Also assert the manifest is still a valid JSON object.
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("plugin.json still needs to be valid JSON: %v", err)
+	}
+	if _, hasAuthor := got["author"]; hasAuthor {
+		t.Error("author key present in decoded map; should be absent")
+	}
+}
+
+// TestPluginJSONEmailOnlyKeepsAuthor verifies the author object is
+// emitted when only one of Name or Email is non-empty. Partial data
+// is still useful to downstream consumers.
+func TestPluginJSONEmailOnlyKeepsAuthor(t *testing.T) {
+	tmp := t.TempDir()
+	r, err := Scaffold(Options{
+		Kind:      KindPlugin,
+		Name:      "email-only",
+		TargetDir: tmp,
+		Author:    Author{Email: "anon@example.com"},
+	})
+	if err != nil {
+		t.Fatalf("Scaffold: %v", err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(r.Root, ".claude-plugin/plugin.json"))
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	author, ok := got["author"].(map[string]any)
+	if !ok {
+		t.Fatalf("author should be an object when email is set, got %v", got["author"])
+	}
+	if author["email"] != "anon@example.com" {
+		t.Errorf("author.email = %v, want anon@example.com", author["email"])
+	}
+}
+
+// TestSkillYAMLInjection is the Round 2 T2-2 guard: the standalone
+// skill template rendered `description: {{.Description}}` into YAML
+// frontmatter. A description containing newlines, YAML control chars
+// (`:` followed by space, `|`, `>`, `#`, `[`), or the literal text of
+// a YAML alias produced broken frontmatter that Claude Code could not
+// parse. The fix routes description through a JSON-as-YAML-double-
+// quoted-scalar helper; every input below must round-trip.
+func TestSkillYAMLInjection(t *testing.T) {
+	cases := []struct {
+		name        string
+		description string
+	}{
+		{"plain", "Review code for quality issues"},
+		{"yaml block scalar marker", "| yaml block scalar marker"},
+		{"yaml comment marker", "# looks like a comment"},
+		{"yaml flow sequence", "[hello, world]"},
+		{"colon space pair", "key: value"},
+		{"newline", "line one\nline two"},
+		{"double quote", `has a "quote" in it`},
+		{"backslash", `C:\path\to\thing`},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			r, err := Scaffold(Options{
+				Kind:        KindSkill,
+				Name:        "yaml-inject-test",
+				TargetDir:   tmp,
+				Description: tt.description,
+			})
+			if err != nil {
+				t.Fatalf("Scaffold: %v", err)
+			}
+			raw, err := os.ReadFile(filepath.Join(r.Root, "SKILL.md"))
+			if err != nil {
+				t.Fatalf("read SKILL.md: %v", err)
+			}
+			// Frontmatter must be three lines: opening ---,
+			// name: yaml-inject-test, description: "...", closing ---.
+			// We don't parse YAML here (no import), but we assert the
+			// description line starts with a double-quoted scalar and
+			// contains a JSON-encoded form of the input.
+			expected := `description: ` + yamlQuoteString(tt.description)
+			if !strings.Contains(string(raw), expected) {
+				t.Errorf("SKILL.md does not contain expected double-quoted description line.\nwant line: %q\nraw:\n%s", expected, raw)
+			}
+			// Also assert there is exactly one description: line (a
+			// broken YAML injection could produce multiple).
+			if count := strings.Count(string(raw), "\ndescription:"); count > 1 {
+				t.Errorf("SKILL.md should contain exactly 1 `description:` line in frontmatter, got %d. raw:\n%s", count, raw)
+			}
+		})
 	}
 }
 

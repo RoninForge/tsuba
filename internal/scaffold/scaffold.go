@@ -47,12 +47,19 @@ type Author struct {
 // than a text/template ensures user-supplied strings (description,
 // author name, etc.) with quotes, backslashes, or newlines produce
 // valid JSON instead of broken output.
+//
+// Author is a pointer so a fresh-machine user with no git config gets
+// the field OMITTED from the manifest instead of a present-but-empty
+// `"author": {"name":"","email":""}`. An absent author triggers hanko's
+// HANKO003 warning (non-blocking); an empty name triggers a blocking
+// HANKO-SCHEMA error. We promise "passes hanko on the first try," so
+// falling back to the warning path is the correct default.
 type pluginManifest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Version     string `json:"version"`
-	Author      Author `json:"author"`
-	License     string `json:"license"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Version     string  `json:"version"`
+	Author      *Author `json:"author,omitempty"`
+	License     string  `json:"license"`
 }
 
 // Options customises a single scaffold run. All fields except Name have
@@ -162,13 +169,14 @@ func applyDefaults(o Options) Options {
 	return o
 }
 
-// templateData is the shape every embedded template receives. Two
-// derived fields, TitleCase and SampleSkillTitleCase, pre-compute the
-// capitalised forms so the templates don't need a helper func map.
+// templateData is the shape every embedded template receives. Derived
+// fields (TitleCase, SampleSkillTitleCase, DescriptionYAML) pre-compute
+// format-specific forms so the templates don't need a helper func map.
 type templateData struct {
 	Name                 string
 	TitleCase            string
 	Description          string
+	DescriptionYAML      string // pre-escaped for YAML double-quoted scalar context
 	Author               Author
 	Version              string
 	License              string
@@ -183,6 +191,7 @@ func buildData(o Options) templateData {
 		Name:                 o.Name,
 		TitleCase:            titleCase(o.Name),
 		Description:          o.Description,
+		DescriptionYAML:      yamlQuoteString(o.Description),
 		Author:               o.Author,
 		Version:              o.Version,
 		License:              o.License,
@@ -191,6 +200,24 @@ func buildData(o Options) templateData {
 		SampleSkillTitleCase: titleCase(o.SampleSkill),
 		Attribution:          o.Attribution,
 	}
+}
+
+// yamlQuoteString returns a YAML double-quoted scalar that safely
+// encodes any string. YAML 1.2's double-quoted scalar is a strict
+// superset of JSON strings, so json.Marshal's output is valid YAML in
+// all cases we care about (quotes, backslashes, newlines, tabs,
+// Unicode U+2028). We rely on that equivalence instead of writing a
+// bespoke YAML escaper.
+//
+// If json.Marshal ever fails (it can't for a plain string), we fall
+// back to an empty-quoted scalar so the template still renders
+// valid YAML rather than panicking.
+func yamlQuoteString(s string) string {
+	b, err := json.Marshal(s)
+	if err != nil {
+		return `""`
+	}
+	return string(b)
 }
 
 func titleCase(kebab string) string {
@@ -228,12 +255,14 @@ func render(path string, data templateData) ([]byte, error) {
 // parent directories. Refuses to write outside root (defensive check
 // against a rendered path that somehow contains `..`).
 func writeFile(root, rel string, content []byte) error {
-	full := filepath.Join(root, rel)
-	// Reject paths that escape the root directory.
-	relClean, err := filepath.Rel(root, full)
-	if err != nil || strings.HasPrefix(relClean, "..") {
+	// filepath.IsLocal (Go 1.20+) is the idiomatic check: rejects
+	// absolute paths, any `..` segment, and (on Windows) reserved
+	// names. Replaces a hand-rolled filepath.Rel + HasPrefix("..")
+	// that would false-match legitimate names like `..hidden.md`.
+	if !filepath.IsLocal(rel) {
 		return fmt.Errorf("refusing to write outside scaffold root: %s", rel)
 	}
+	full := filepath.Join(root, rel)
 	if err := os.MkdirAll(filepath.Dir(full), 0o750); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(full), err)
 	}
@@ -247,22 +276,22 @@ func writeFile(root, rel string, content []byte) error {
 // Returns ErrTargetExists when root is already present and force is false.
 // Creates the directory (parents included) otherwise.
 //
-// When force is true, we remove the existing path entirely and recreate
-// it. That prevents stale files from a previous scaffold run lingering
-// after the current run produces a different template set. If the
-// existing path is a plain file (not a dir), the removal still succeeds
-// and the subsequent MkdirAll gets the clean target it expects.
+// Uses os.Lstat rather than os.Stat so a broken symlink at the target
+// path (e.g. left over from a deleted repo) is detected as "exists"
+// instead of confusing Stat's ErrNotExist into overwriting the link
+// location with MkdirAll.
+//
+// When force is true, we remove the existing path entirely (including
+// a plain file or broken symlink) and recreate it. That prevents stale
+// files from a previous scaffold run lingering after the current run
+// produces a different template set.
 func ensureTarget(root string, force bool) error {
-	info, err := os.Stat(root)
+	_, err := os.Lstat(root)
 	switch {
 	case err == nil:
 		if !force {
 			return ErrTargetExists
 		}
-		// A plain file at the target path without --force was already
-		// caught by the !force branch above; this branch only runs when
-		// force is true, so delete whatever is there and start fresh.
-		_ = info
 		if err := os.RemoveAll(root); err != nil {
 			return fmt.Errorf("remove existing %s: %w", root, err)
 		}
@@ -270,7 +299,7 @@ func ensureTarget(root string, force bool) error {
 	case errors.Is(err, fs.ErrNotExist):
 		return os.MkdirAll(root, 0o750)
 	default:
-		return fmt.Errorf("stat %s: %w", root, err)
+		return fmt.Errorf("lstat %s: %w", root, err)
 	}
 }
 
@@ -291,8 +320,14 @@ func scaffoldPlugin(o Options) (*Result, error) {
 		Name:        o.Name,
 		Description: o.Description,
 		Version:     o.Version,
-		Author:      o.Author,
 		License:     o.License,
+	}
+	// Only include the author object when we actually have a name or
+	// email. See the pluginManifest doc comment for the hanko-pass
+	// rationale.
+	if o.Author.Name != "" || o.Author.Email != "" {
+		author := o.Author
+		manifest.Author = &author
 	}
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {

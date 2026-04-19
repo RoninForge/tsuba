@@ -78,7 +78,7 @@ func TestNewSkillHappyPath(t *testing.T) {
 	}
 	for _, want := range []string{
 		"name: code-reviewer",
-		"description: Review code for quality",
+		`description: "Review code for quality"`, // YAML double-quoted scalar per T2-2 fix
 		"# Code Reviewer",
 		"## When to use",
 	} {

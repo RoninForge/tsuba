@@ -4,6 +4,7 @@
 package scaffold
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -32,9 +33,26 @@ const (
 // fields may be empty strings; the scaffold never rejects the run for
 // missing author data (marketplaces do, and hanko flags it, but that's
 // not scaffold's job).
+//
+// The json tags let Author ride directly through encoding/json.Marshal
+// when we build plugin.json, which sidesteps the injection class that
+// text/template has when a user name contains quotes or backslashes.
 type Author struct {
-	Name  string
-	Email string
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+// pluginManifest is the shape of .claude-plugin/plugin.json when
+// scaffolded by tsuba. Using a struct + encoding/json.Marshal rather
+// than a text/template ensures user-supplied strings (description,
+// author name, etc.) with quotes, backslashes, or newlines produce
+// valid JSON instead of broken output.
+type pluginManifest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Version     string `json:"version"`
+	Author      Author `json:"author"`
+	License     string `json:"license"`
 }
 
 // Options customises a single scaffold run. All fields except Name have
@@ -228,14 +246,27 @@ func writeFile(root, rel string, content []byte) error {
 // ensureTarget checks that the intended root directory can be created.
 // Returns ErrTargetExists when root is already present and force is false.
 // Creates the directory (parents included) otherwise.
+//
+// When force is true, we remove the existing path entirely and recreate
+// it. That prevents stale files from a previous scaffold run lingering
+// after the current run produces a different template set. If the
+// existing path is a plain file (not a dir), the removal still succeeds
+// and the subsequent MkdirAll gets the clean target it expects.
 func ensureTarget(root string, force bool) error {
-	_, err := os.Stat(root)
+	info, err := os.Stat(root)
 	switch {
 	case err == nil:
 		if !force {
 			return ErrTargetExists
 		}
-		return nil
+		// A plain file at the target path without --force was already
+		// caught by the !force branch above; this branch only runs when
+		// force is true, so delete whatever is there and start fresh.
+		_ = info
+		if err := os.RemoveAll(root); err != nil {
+			return fmt.Errorf("remove existing %s: %w", root, err)
+		}
+		return os.MkdirAll(root, 0o750)
 	case errors.Is(err, fs.ErrNotExist):
 		return os.MkdirAll(root, 0o750)
 	default:
@@ -250,19 +281,43 @@ func scaffoldPlugin(o Options) (*Result, error) {
 	}
 	data := buildData(o)
 
-	// A small table-driven file list keeps the control flow flat and
-	// lets us add files in v0.2 without editing conditionals.
+	// plugin.json goes through encoding/json.Marshal so user-supplied
+	// strings with quotes, backslashes, or newlines produce valid JSON.
+	// Using a text/template would drop those bytes verbatim into the
+	// file and produce broken output that immediately fails hanko check
+	// (which is the exact scenario tsuba's "passes hanko on first try"
+	// promise rules out).
+	manifest := pluginManifest{
+		Name:        o.Name,
+		Description: o.Description,
+		Version:     o.Version,
+		Author:      o.Author,
+		License:     o.License,
+	}
+	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal plugin.json: %w", err)
+	}
+	// Trailing newline to match conventional POSIX file style.
+	manifestBytes = append(manifestBytes, '\n')
+
+	if err := writeFile(root, ".claude-plugin/plugin.json", manifestBytes); err != nil {
+		return nil, err
+	}
+
+	// The remaining files are Markdown and MIT text; a text/template is
+	// fine there because Markdown and the LICENSE boilerplate are not
+	// structured formats that user-supplied strings can corrupt.
 	writes := []struct {
 		templatePath string
 		outputPath   string
 	}{
-		{"plugin/plugin.json.tmpl", ".claude-plugin/plugin.json"},
 		{"plugin/README.md.tmpl", "README.md"},
 		{"plugin/LICENSE.tmpl", "LICENSE"},
 		{"plugin/sample-skill.md.tmpl", filepath.Join("skills", o.SampleSkill, "SKILL.md")},
 	}
 
-	written := make([]string, 0, len(writes))
+	written := []string{".claude-plugin/plugin.json"}
 	for _, w := range writes {
 		content, err := render(w.templatePath, data)
 		if err != nil {

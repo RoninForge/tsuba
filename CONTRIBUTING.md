@@ -29,11 +29,10 @@ go test ./internal/scaffold       # single package
 go test -race -cover ./...        # what CI runs
 ```
 
-Every new template must ship with:
+Every new template should ship with:
 
 1. An end-to-end test in `scaffold_test.go` that generates the template and asserts the output shape.
-2. A fixture under `testdata/expected/<kind>/` with the rendered output.
-3. A test that runs `hanko check` against the generated plugin if applicable (hanko must be on PATH).
+2. If the template involves a structured format (JSON, YAML, TOML), a round-trip test that re-parses the output to guarantee the format stays valid when user-supplied fields contain tricky characters (quotes, backslashes, newlines). The `TestPluginJSONInjection` table is the reference pattern.
 
 ## Commit style
 

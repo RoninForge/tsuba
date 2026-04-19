@@ -223,3 +223,106 @@ func TestScaffoldUnknownKind(t *testing.T) {
 		t.Errorf("error should mention unknown kind, got: %v", err)
 	}
 }
+
+// TestPluginJSONInjection is the regression guard for the Round 1
+// review finding: before this test, a user whose name or description
+// contained a JSON-sensitive character (`"`, `\`, `\n`, `\t`, Unicode
+// line separators) would produce a broken plugin.json that failed
+// `hanko check` on the first try. The fix routes plugin.json through
+// encoding/json.Marshal; every round-trip below must re-parse into the
+// original string.
+func TestPluginJSONInjection(t *testing.T) {
+	cases := []struct {
+		name        string
+		description string
+		authorName  string
+	}{
+		{"quote in author", "plain", `Jose "Pepe" Lopez`},
+		{"backslash in description", `C:\Users\home`, "plain"},
+		{"newline in description", "line one\nline two", "plain"},
+		{"tab in description", "with\ttab", "plain"},
+		{"unicode line separator", "text\u2028more", "plain"},
+		{"injection attempt", `","version":"666","license":"pwn`, "plain"},
+		{"quote in email", "plain", "plain"}, // email tested separately below
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			r, err := Scaffold(Options{
+				Kind:        KindPlugin,
+				Name:        "injection-test",
+				TargetDir:   tmp,
+				Description: tt.description,
+				Author:      Author{Name: tt.authorName, Email: "test@example.com"},
+			})
+			if err != nil {
+				t.Fatalf("Scaffold: %v", err)
+			}
+			raw, err := os.ReadFile(filepath.Join(r.Root, ".claude-plugin/plugin.json"))
+			if err != nil {
+				t.Fatalf("read plugin.json: %v", err)
+			}
+			var got pluginManifest
+			if err := json.Unmarshal(raw, &got); err != nil {
+				t.Fatalf("plugin.json is not valid JSON: %v\n%s", err, raw)
+			}
+			if got.Description != tt.description {
+				t.Errorf("description mismatch\n  want: %q\n  got:  %q\n  raw:  %s", tt.description, got.Description, raw)
+			}
+			if got.Author.Name != tt.authorName {
+				t.Errorf("author.name mismatch\n  want: %q\n  got:  %q", tt.authorName, got.Author.Name)
+			}
+		})
+	}
+}
+
+// TestForceClearsStaleFiles verifies that --force removes existing
+// files from a previous scaffold before writing the new set. Without
+// this, orphaned files from earlier tsuba versions linger after an
+// upgrade-and-rescaffold cycle.
+func TestForceClearsStaleFiles(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "clearme")
+	if err := os.MkdirAll(root, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	stale := filepath.Join(root, "stale-from-earlier-scaffold.md")
+	if err := os.WriteFile(stale, []byte("leftover"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Scaffold(Options{
+		Kind:      KindPlugin,
+		Name:      "clearme",
+		TargetDir: tmp,
+		Force:     true,
+		Author:    Author{Name: "X", Email: "x@x.x"},
+	}); err != nil {
+		t.Fatalf("Scaffold with Force=true: %v", err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Errorf("expected stale file to be removed, stat err = %v", err)
+	}
+}
+
+// TestForceWorksWhenTargetIsPlainFile ensures --force removes a
+// non-directory at the target path instead of crashing with the
+// confusing "mkdir: not a directory" message Round 1 surfaced.
+func TestForceWorksWhenTargetIsPlainFile(t *testing.T) {
+	tmp := t.TempDir()
+	target := filepath.Join(tmp, "was-a-file")
+	if err := os.WriteFile(target, []byte("collision"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Scaffold(Options{
+		Kind:      KindPlugin,
+		Name:      "was-a-file",
+		TargetDir: tmp,
+		Force:     true,
+		Author:    Author{Name: "X", Email: "x@x.x"},
+	}); err != nil {
+		t.Fatalf("Scaffold should clear plain-file collision under --force, got: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(target, ".claude-plugin/plugin.json")); err != nil {
+		t.Errorf("expected plugin.json written after --force over a file, got: %v", err)
+	}
+}

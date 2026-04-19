@@ -18,17 +18,6 @@ func UserName() string { return configValue("user.name") }
 // git is not on PATH.
 func UserEmail() string { return configValue("user.email") }
 
-// OriginURL returns the `origin` remote URL for the current git repo, or
-// empty if we are not inside one.
-func OriginURL() string {
-	cmd := exec.Command("git", "remote", "get-url", "origin")
-	out, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
-}
-
 // Available reports whether `git` exists on PATH. Useful for doctor
 // checks that want to distinguish "git not installed" from "git config
 // unset."

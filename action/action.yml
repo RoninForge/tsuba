@@ -1,0 +1,53 @@
+name: tsuba
+description: Validate a scaffolded Claude Code plugin directory (delegates to hanko)
+author: RoninForge
+branding:
+  icon: check-circle
+  color: orange
+
+inputs:
+  path:
+    description: Path to the plugin directory to validate. Defaults to the repository root.
+    required: false
+    default: .
+  version:
+    description: Pin a tsuba version (example v0.1.0). Defaults to the action's pinned ref.
+    required: false
+    default: ''
+  hanko-version:
+    description: Pin a hanko version. Defaults to latest.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install tsuba
+      shell: bash
+      env:
+        TSUBA_VERSION: ${{ inputs.version }}
+        TSUBA_ACTION_REF: ${{ github.action_ref }}
+      run: |
+        set -eu
+        ref="${TSUBA_ACTION_REF:-main}"
+        curl -fsSL "https://raw.githubusercontent.com/RoninForge/tsuba/${ref}/scripts/install.sh" \
+          | BIN_DIR="$HOME/.local/bin" sh
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Install hanko
+      shell: bash
+      env:
+        HANKO_VERSION: ${{ inputs.hanko-version }}
+      run: |
+        set -eu
+        curl -fsSL https://roninforge.org/hanko/install.sh | BIN_DIR="$HOME/.local/bin" sh
+
+    - name: Run tsuba validate
+      shell: bash
+      env:
+        TSUBA_PATH: ${{ inputs.path }}
+      run: |
+        set -eu
+        tsuba doctor
+        echo
+        tsuba validate "$TSUBA_PATH"

@@ -1,0 +1,60 @@
+// Package version exposes build-time version metadata.
+//
+// Values are injected at release time via -ldflags:
+//
+//	go build -ldflags "\
+//	  -X github.com/RoninForge/tsuba/internal/version.version=v0.1.0 \
+//	  -X github.com/RoninForge/tsuba/internal/version.commit=$(git rev-parse HEAD) \
+//	  -X github.com/RoninForge/tsuba/internal/version.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+//
+// When built without ldflags (go run, go install, unit tests), Get falls
+// back to runtime/debug.ReadBuildInfo so callers still see useful data.
+package version
+
+import "runtime/debug"
+
+var (
+	version   = "dev"
+	commit    = "unknown"
+	buildDate = "unknown"
+)
+
+// Info describes a built binary.
+type Info struct {
+	Version   string
+	Commit    string
+	BuildDate string
+}
+
+// Get returns build metadata, preferring ldflags-injected values and falling
+// back to runtime/debug.ReadBuildInfo for source builds.
+func Get() Info {
+	info := Info{
+		Version:   version,
+		Commit:    commit,
+		BuildDate: buildDate,
+	}
+
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return info
+	}
+
+	if info.Version == "dev" && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		info.Version = bi.Main.Version
+	}
+
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			if info.Commit == "unknown" && s.Value != "" {
+				info.Commit = s.Value
+			}
+		case "vcs.time":
+			if info.BuildDate == "unknown" && s.Value != "" {
+				info.BuildDate = s.Value
+			}
+		}
+	}
+	return info
+}

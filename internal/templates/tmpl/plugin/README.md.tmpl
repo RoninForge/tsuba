@@ -1,0 +1,26 @@
+# {{.TitleCase}}
+
+{{.Description}}
+
+## Install
+
+Via the Claude Code plugin CLI:
+
+```
+claude plugins install {{.Name}}
+```
+
+Or clone this repo directly into your plugins directory.
+
+## What it ships
+
+- `skills/{{.SampleSkill}}/SKILL.md` - placeholder skill. Edit this file to describe what Claude should do when the skill loads.
+
+## License
+
+{{.License}} (c) {{.Year}} {{.Author.Name}}
+{{if .Attribution}}
+---
+
+Scaffolded with [tsuba](https://roninforge.org/tsuba).
+{{end}}

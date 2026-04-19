@@ -1,0 +1,17 @@
+{
+  "name": "agents-development-architecture",
+  "version": "1.0.0",
+  "description": "Expert agents for software architecture, backend development, and system design",
+  "author": {
+    "name": "BuildWithClaude Community",
+    "url": "https://github.com/davepoon/buildwithclaude"
+  },
+  "repository": "https://github.com/davepoon/buildwithclaude",
+  "license": "MIT",
+  "keywords": [
+    "agents",
+    "subagents",
+    "development-architecture",
+    "backend-architect"
+  ]
+}

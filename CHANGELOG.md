@@ -4,6 +4,16 @@ All notable changes to tsuba are documented here. Format based on [Keep a Change
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-04-19
+
+### Fixed
+
+- **Empty author broke hanko validation on fresh machines (Round 2, T2-1):** A user with no `git config user.name` and no `--author` produced a `plugin.json` with `"author": {"name":"","email":""}` that hanko rejected with a `HANKO-SCHEMA` error on `minLength: 1`. `pluginManifest.Author` is now `*Author` with `omitempty`; the object is omitted entirely when both fields are empty, which downgrades the hanko signal to the `HANKO003` warning (non-blocking). The "passes hanko on first try" promise now holds for fresh-machine users.
+- **YAML injection in standalone SKILL.md frontmatter (Round 2, T2-2):** `description: {{.Description}}` dropped raw user strings into YAML. A `--description "# comment"` was parsed as `null`; newlines broke the document; `[a, b]` was parsed as a flow sequence. Fix: added a `yamlQuoteString` helper that routes through `json.Marshal` (YAML is a superset of JSON for scalars) and changed the template to emit `description: "..."` with proper escaping.
+- **Broken symlinks confused `ensureTarget` (Round 2, T2-4):** `os.Stat` follows symlinks, so a dangling link at the target path returned `fs.ErrNotExist` and the code took the "nothing there" branch. Switched to `os.Lstat` so broken links are seen as "exists" and `--force` cleans them via `RemoveAll`.
+- `filepath.IsLocal` replaces a hand-rolled path-escape check that would have false-matched legitimate names like `..hidden.md` (Round 2, T3-5).
+- `CONTRIBUTING.md` stopped referencing a non-existent `testdata/` layout (Round 2, T2-3).
+
 ## [0.1.2] - 2026-04-19
 
 ### Fixed
@@ -38,7 +48,8 @@ All notable changes to tsuba are documented here. Format based on [Keep a Change
 - Every scaffolded plugin's README footer includes an opt-out "scaffolded with tsuba" attribution.
 - Composite GitHub Action wrapper that runs `tsuba validate` on every PR against a plugin repo.
 
-[Unreleased]: https://github.com/RoninForge/tsuba/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/RoninForge/tsuba/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/RoninForge/tsuba/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/RoninForge/tsuba/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/RoninForge/tsuba/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/RoninForge/tsuba/releases/tag/v0.1.0

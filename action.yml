@@ -1,4 +1,4 @@
-name: tsuba
+name: Tsuba Plugin Scaffolder
 description: Validate a scaffolded Claude Code plugin directory (delegates to hanko)
 author: RoninForge
 branding:

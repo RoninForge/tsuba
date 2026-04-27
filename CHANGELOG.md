@@ -4,6 +4,12 @@ All notable changes to tsuba are documented here. Format based on [Keep a Change
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-04-27
+
+### Changed
+
+- `action.yml` `name:` field renamed from `tsuba` to `Tsuba Plugin Scaffolder` so the Action passes GitHub Marketplace's global-uniqueness check (`tsuba` collides with an existing GitHub user). Repo name, `uses: RoninForge/tsuba@v0` consumption path, branding, and binary name are unchanged.
+
 ## [0.2.0] - 2026-04-27
 
 ### Changed

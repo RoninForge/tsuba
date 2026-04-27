@@ -15,6 +15,12 @@ The name: **鍔 (tsuba)** is the guard on a katana - the disc between blade and 
 curl -fsSL https://roninforge.org/tsuba/install.sh | sh
 ```
 
+Via Homebrew (macOS, Linux):
+
+```sh
+brew install roninforge/tap/tsuba
+```
+
 Or grab a binary from the [latest release](https://github.com/RoninForge/tsuba/releases/latest). Prefer Go install:
 
 ```sh
@@ -25,6 +31,8 @@ Also install [Hanko](https://github.com/RoninForge/hanko) so `tsuba validate` wo
 
 ```sh
 curl -fsSL https://roninforge.org/hanko/install.sh | sh
+# or
+brew install roninforge/tap/hanko
 ```
 
 ## Quickstart

@@ -9,6 +9,8 @@ tsuba is a single-binary Go CLI that generates correct Claude Code plugin direct
 
 The name: **鍔 (tsuba)** is the guard on a katana - the disc between blade and handle that lets a swordsman grip the blade safely and hand it off to someone else. tsuba the tool does the same thing for your plugin: makes it safe to hand off to the marketplace.
 
+What tsuba scaffolds, the command reference and the FAQ: **<https://roninforge.org/tsuba/>**
+
 ## Install
 
 ```sh
@@ -71,13 +73,6 @@ my-plugin/
 
 All generated JSON is kebab-case, `version`-stamped, and passes `hanko check` on the first try. Author name and email default to your git config (`git config user.name`, `git config user.email`) and can be overridden with `--author` and `--email`.
 
-## Sibling tools
-
-tsuba is part of [RoninForge](https://roninforge.org). Its siblings:
-
-- [Hanko](https://github.com/RoninForge/hanko) - validate plugin manifests before submission.
-- [BudgetClaw](https://github.com/RoninForge/budgetclaw) - local spend monitor for Claude Code.
-
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -87,16 +82,23 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 See [SECURITY.md](SECURITY.md).
 
 
+## Docs
+
+- [What tsuba scaffolds, the commands and the FAQ](https://roninforge.org/tsuba/)
+- [How to create a Claude skill](https://roninforge.org/tutorials/how-to-create-a-claude-skill-for-my-cv/)
+
 ## More from RoninForge
 
 Free, local-first tools for developers working with AI coding assistants. No accounts, MIT licensed.
 
-- [Hanko](https://roninforge.org/hanko) - validate Claude Code plugin manifests
-- [BudgetClaw](https://roninforge.org/budgetclaw) - local spend monitor for Claude Code
-- [Goei](https://roninforge.org/goei) - unified AI provider cost dashboard
+- [Hanko](https://roninforge.org/hanko/) - validate Claude Code plugin manifests
+- [BudgetClaw](https://roninforge.org/budgetclaw/) - local spend monitor for Claude Code
+- [Goei](https://roninforge.org/goei/) - unified AI provider cost dashboard
 
 Free web tools (run in your browser, nothing uploaded):
 
-- [GitHub Copilot AI Credits calculator](https://roninforge.org/copilot-credits-calculator) - estimate your monthly credit burn under usage-based billing
-- [Copilot usage CSV analyzer](https://roninforge.org/copilot-csv-analyzer) - break your usage report down by model, day, and SKU
-- [LLM API pricing comparison](https://roninforge.org/llm-pricing) - Claude, GPT, Gemini, DeepSeek, Mistral, and Grok token prices side by side
+- [GitHub Copilot AI Credits calculator](https://roninforge.org/copilot-credits-calculator/) - estimate your monthly credit burn under usage-based billing
+- [Copilot usage CSV analyzer](https://roninforge.org/copilot-csv-analyzer/) - break your usage report down by model, day, and SKU
+- [LLM API pricing comparison](https://roninforge.org/llm-pricing/) - Claude, GPT, Gemini, DeepSeek, Mistral, and Grok token prices side by side
+
+tsuba is part of [RoninForge.org](https://roninforge.org).

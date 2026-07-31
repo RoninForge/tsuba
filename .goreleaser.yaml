@@ -100,3 +100,5 @@ release:
     ---
 
     **Full changelog**: https://github.com/RoninForge/tsuba/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    **What tsuba scaffolds, the command reference and the FAQ**: https://roninforge.org/tsuba/

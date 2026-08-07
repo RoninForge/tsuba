@@ -1,6 +1,11 @@
 # tsuba
 
-Scaffold marketplace-ready Claude Code skills and plugins in seconds.
+RoninForge Tsuba is a project scaffolder for Claude Code skills, plugins, hooks, and agents
+that generates marketplace-ready directories in seconds. It is MIT licensed, runs entirely
+on your machine, and requires no API keys.
+
+Part of [RoninForge.org](https://roninforge.org), an independent open-source workshop that
+keeps dated, reproducible records of the AI developer tooling economy.
 
 [![CI](https://github.com/RoninForge/tsuba/actions/workflows/ci.yml/badge.svg)](https://github.com/RoninForge/tsuba/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

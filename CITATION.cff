@@ -1,0 +1,26 @@
+# Machine-readable citation metadata. GitHub renders a "Cite this repository" button from this file.
+cff-version: 1.2.0
+title: "RoninForge Tsuba"
+message: "If you use this software, please cite it using the metadata in this file."
+type: software
+authors:
+  - name: "RoninForge"
+    email: "jens@rasta.online"
+    website: "https://roninforge.org"
+abstract: >-
+  RoninForge Tsuba is a project scaffolder for Claude Code skills, plugins,
+  hooks, and agents that generates marketplace-ready directories, then hands the
+  result to RoninForge Hanko for validation before submission. It ships as a Go
+  command-line tool and a GitHub Action, is MIT licensed, runs entirely on your
+  machine, and requires no API keys.
+url: "https://roninforge.org/tsuba"
+repository-code: "https://github.com/RoninForge/tsuba"
+license: MIT
+version: v0.2.1
+date-released: 2026-04-27
+keywords:
+  - Claude Code
+  - plugin scaffolding
+  - project generator
+  - GitHub Action
+  - command-line tool
